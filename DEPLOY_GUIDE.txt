@@ -176,6 +176,11 @@ TOTAL COST:   ₹0/month
 TROUBLESHOOTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Q: Render build fails on pydantic-core / Rust / Python 3.14?
+A: Set Root Directory to "backend" (so runtime.txt is used).
+   In Render → Environment → add PYTHON_VERSION = 3.11.9
+   Redeploy. Do not use Python 3.14 (no wheels for pinned pydantic).
+
 Q: Backend shows "Application Error" on Render?
 A: Check Render logs → make sure all 4 env variables are set
 

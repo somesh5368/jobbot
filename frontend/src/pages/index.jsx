@@ -315,20 +315,29 @@ export default function JobBotDashboard() {
   const [showProfile, setShowProfile] = useState(false);
   const [filter, setFilter] = useState({ type: "", min_match: 0, max_risk: 100 });
   const [resumeFile, setResumeFile] = useState(null);
+  const [backendOk, setBackendOk] = useState(true);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    try {
-      const [jobsRes, statsRes, profileRes] = await Promise.all([
-        axios.get(`${API}/api/jobs/`, { params: { min_match: filter.min_match, max_risk: filter.max_risk, type: filter.type || undefined } }),
-        axios.get(`${API}/api/jobs/stats`),
-        axios.get(`${API}/api/profile/`),
-      ]);
-      setJobs(jobsRes.data.jobs || []);
-      setStats(statsRes.data || {});
-      setProfile(profileRes.data.profile);
-    } catch {
-      toast.error("Backend not connected. Make sure Render is running.");
+    const opts = { timeout: 90000 };
+    const params = { min_match: filter.min_match, max_risk: filter.max_risk, type: filter.type || undefined };
+    const [jobsRes, statsRes, profileRes] = await Promise.allSettled([
+      axios.get(`${API}/api/jobs/`, { params, ...opts }),
+      axios.get(`${API}/api/jobs/stats`, opts),
+      axios.get(`${API}/api/profile/`, opts),
+    ]);
+
+    const jobsOk = jobsRes.status === "fulfilled";
+    const statsOk = statsRes.status === "fulfilled";
+    const profileOk = profileRes.status === "fulfilled";
+    setBackendOk(jobsOk && statsOk);
+
+    if (jobsOk) setJobs(jobsRes.value.data.jobs || []);
+    if (statsOk) setStats(statsRes.value.data || {});
+    if (profileOk) setProfile(profileRes.value.data.profile);
+
+    if (!jobsOk && !statsOk) {
+      toast.error("Backend not reachable. Open Render URL first (cold start ~30s), then refresh.");
     }
     setLoading(false);
   }, [filter]);
@@ -339,8 +348,9 @@ export default function JobBotDashboard() {
     setScanning(true);
     try {
       await axios.post(`${API}/api/scraper/trigger`);
-      toast.success("🔍 Scan started! Check back in ~60 seconds.");
-      setTimeout(fetchAll, 10000);
+      toast.success("🔍 Scan started! Wait 60–90s (first run can be slow on free Render).");
+      setTimeout(fetchAll, 15000);
+      setTimeout(fetchAll, 60000);
     } catch {
       toast.error("Trigger failed — is backend running?");
     }
@@ -410,6 +420,13 @@ export default function JobBotDashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6">
+        {!backendOk && (
+          <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Backend not connected. Visit{" "}
+            <a href={API} target="_blank" rel="noreferrer" className="underline text-amber-100">{API}</a>
+            {" "}once to wake Render, then refresh this page.
+          </div>
+        )}
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatCard icon={BriefcaseIcon} label="Total Listings" value={stats.total_jobs || 0} color="violet" />
@@ -482,7 +499,10 @@ export default function JobBotDashboard() {
             ) : sortedJobs.length === 0 ? (
               <div className="text-center py-20 text-slate-500">
                 <SearchIcon size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="mb-3">No jobs found yet.</p>
+                <p className="mb-1">No jobs in database yet.</p>
+                <p className="text-xs text-slate-600 mb-4 max-w-md mx-auto">
+                  Set up Profile (top right) → upload resume → click Scan Now → wait 60–90s → refresh.
+                </p>
                 <button onClick={triggerScan} className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2.5 rounded-xl text-sm font-medium transition-colors">
                   Run First Scan
                 </button>
