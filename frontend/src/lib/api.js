@@ -18,6 +18,10 @@ apiClient.interceptors.response.use(
 );
 
 export const auth = {
+  getStatus: async () => {
+    const res = await fetch('/api/auth/status', { credentials: 'include' });
+    return res.json();
+  },
   unlock: async (passcode) => {
     const res = await fetch('/api/auth/unlock', {
       method: 'POST',
@@ -29,6 +33,7 @@ export const auth = {
     if (!res.ok) {
       const err = new Error(data.detail || 'Unlock failed');
       err.status = res.status;
+      err.code = data.code;
       throw err;
     }
     return data;

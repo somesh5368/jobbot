@@ -75,6 +75,7 @@ export default function Layout({ children }) {
   const [authError, setAuthError] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [systemStatus, setSystemStatus] = useState(null);
 
   const checkAuthorization = async () => {
     try {
@@ -108,6 +109,12 @@ export default function Layout({ children }) {
   }, [router.pathname]);
 
   useEffect(() => {
+    if (!isAuthorized && !checkingAuth) {
+      auth.getStatus().then(setSystemStatus).catch(() => null);
+    }
+  }, [isAuthorized, checkingAuth]);
+
+  useEffect(() => {
     setMobileNavOpen(false);
   }, [router.pathname]);
 
@@ -133,20 +140,34 @@ export default function Layout({ children }) {
     setUnlocking(true);
     setAuthError('');
     try {
-      await auth.unlock(passcode);
-      const profData = await api.getProfile();
+      const { profile: profData } = await auth.unlock(passcode);
       setProfile(profData);
-      const status = await api.getScraperStatus();
-      setScraperStatus(status);
+      try {
+        const status = await api.getScraperStatus();
+        setScraperStatus(status);
+      } catch {
+        /* scraper status is optional on unlock */
+      }
       setIsAuthorized(true);
       setPasscode('');
     } catch (err) {
+      const detail = err.message || 'Unlock failed';
       if (err.status === 403) {
-        setAuthError('Wrong access key. Use the same value as JOBBOT_ACCESS_SECRET / X_JOBBOT_KEY.');
+        setAuthError('Wrong access key. It must match JOBBOT_ACCESS_SECRET (Vercel) and X_JOBBOT_KEY (Render).');
+      } else if (err.status === 503 || err.code === 'BACKEND_KEY_MISMATCH') {
+        setAuthError(detail);
+      } else if (err.status === 504 || err.code === 'BACKEND_TIMEOUT') {
+        setAuthError(detail);
+      } else if (err.status === 502) {
+        setAuthError(detail);
       } else if (err.status === 500) {
-        setAuthError(err.message || 'Server misconfigured. Set JOBBOT_ACCESS_SECRET on Vercel.');
+        setAuthError(detail);
+      } else if (err.response?.status === 403) {
+        setAuthError('Backend rejected the session. Sync X_JOBBOT_KEY on Render with JOBBOT_ACCESS_SECRET on Vercel.');
+      } else if (err.response?.status === 502) {
+        setAuthError(err.response?.data?.detail || 'Backend unavailable. Try again in 60 seconds.');
       } else {
-        setAuthError('Cannot unlock. Start the backend locally or redeploy Vercel with env vars set.');
+        setAuthError(detail);
       }
     } finally {
       setUnlocking(false);
@@ -200,6 +221,15 @@ export default function Layout({ children }) {
             <p className="mt-3 text-sm text-slate-400">
               Enter your access key to open your profile, vault, and job feed.
             </p>
+            {systemStatus && (
+              <p
+                className={`mt-3 text-xs font-medium ${
+                  systemStatus.ready ? 'text-emerald-400' : 'text-amber-400'
+                }`}
+              >
+                {systemStatus.message}
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleUnlock} className="mt-8 space-y-6">
