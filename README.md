@@ -116,14 +116,14 @@ npm run dev
 
 ### 3. Unlock the dashboard
 
-Set the **same secret** in both places:
+Set the **same secret** in backend and frontend server env:
 
 | File | Variable |
 |------|----------|
 | `backend/.env` | `X_JOBBOT_KEY` |
-| `frontend/.env.development` | `NEXT_PUBLIC_UI_ACCESS_KEY` |
+| `frontend/.env.local` or `.env.development` | `JOBBOT_ACCESS_SECRET` |
 
-Or enter the passcode on the lock screen (stored in `localStorage`).
+Enter that value on the lock screen. A **30-day HttpOnly cookie** is set — the secret is **never** stored in the browser or exposed via `NEXT_PUBLIC_*`.
 
 ---
 
@@ -145,16 +145,16 @@ Or enter the passcode on the lock screen (stored in `localStorage`).
 | `GOOGLE_SEARCH_CX` | Optional | Programmable Search engine ID |
 | `PORT` | Auto | `8000` locally; Render sets `$PORT` |
 
-### Frontend (`.env.development` local / Vercel prod)
+### Frontend (`.env.local` local / **Vercel** production)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Same project as backend |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Anon/public key only |
-| `NEXT_PUBLIC_API_URL` | Yes | **Must end with `/api`** — e.g. `http://localhost:8000/api` or `https://your-backend.onrender.com/api` |
-| `NEXT_PUBLIC_UI_ACCESS_KEY` | Yes | Same value as `X_JOBBOT_KEY` |
+| Variable | Required | Exposed to browser? | Description |
+|----------|----------|---------------------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Yes | Anon key only |
+| `JOBBOT_ACCESS_SECRET` | Yes | **No** | Unlock passcode + proxy adds `X-JobBot-Key` — **must equal** `X_JOBBOT_KEY` on Render |
+| `BACKEND_API_URL` | Yes | **No** | Render URL ending in `/api` — used only by Next.js API routes |
 
-> Never commit `.env` files or expose service role / API keys in the frontend.
+> Do **not** use `NEXT_PUBLIC_UI_ACCESS_KEY` or `NEXT_PUBLIC_API_URL` — the browser talks to `/api/backend/*` on the same origin; Vercel proxies to Render with the secret server-side.
 
 ---
 
@@ -210,13 +210,13 @@ Save, then **Clear build cache & deploy**. The next log should show `Installing 
 3. Environment variables (Production):
 
 ```env
-NEXT_PUBLIC_API_URL=https://YOUR-BACKEND.onrender.com/api
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-NEXT_PUBLIC_UI_ACCESS_KEY=same_as_X_JOBBOT_KEY
+JOBBOT_ACCESS_SECRET=same_long_secret_as_X_JOBBOT_KEY_on_Render
+BACKEND_API_URL=https://YOUR-BACKEND.onrender.com/api
 ```
 
-4. Deploy → open site → enter access key if prompted.
+4. Deploy → open site → unlock with `JOBBOT_ACCESS_SECRET` value.
 
 ---
 
@@ -224,8 +224,9 @@ NEXT_PUBLIC_UI_ACCESS_KEY=same_as_X_JOBBOT_KEY
 
 Use this before every release:
 
-- [ ] `NEXT_PUBLIC_API_URL` ends with `/api`  
-- [ ] `NEXT_PUBLIC_UI_ACCESS_KEY` === `X_JOBBOT_KEY` on Render  
+- [ ] `BACKEND_API_URL` on Vercel ends with `/api`  
+- [ ] `JOBBOT_ACCESS_SECRET` on Vercel === `X_JOBBOT_KEY` on Render  
+- [ ] Removed legacy `NEXT_PUBLIC_UI_ACCESS_KEY` from Vercel (if present)  
 - [ ] `DASHBOARD_URL` points to live Vercel URL (not localhost)  
 - [ ] `CORS_ORIGINS` includes Vercel URL  
 - [ ] Google keys set on Render (if using web search)  
@@ -235,15 +236,26 @@ Use this before every release:
 
 ---
 
-## API authentication
+## API authentication (production architecture)
 
-All `/api/*` routes require header:
-
-```http
-X-JobBot-Key: <your secret>
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant Vercel as Next.js on Vercel
+  participant Render as FastAPI on Render
+  Browser->>Vercel: POST /api/auth/unlock (passcode)
+  Vercel->>Vercel: Set HttpOnly cookie (signed, 30 days)
+  Browser->>Vercel: GET /api/backend/profile (cookie)
+  Vercel->>Render: GET /api/profile + X-JobBot-Key header
+  Render-->>Vercel: JSON
+  Vercel-->>Browser: JSON
 ```
 
-The frontend sends this automatically via `src/lib/api.js` (env var or lock-screen passcode).
+- **Browser** never sees `X_JOBBOT_KEY` or `JOBBOT_ACCESS_SECRET`.
+- **Render** only accepts direct calls with `X-JobBot-Key` (added by Vercel proxy).
+- **Unlock** compares passcode to `JOBBOT_ACCESS_SECRET` on Vercel only.
+
+Implementation: `frontend/src/pages/api/auth/*` and `frontend/src/pages/api/backend/[...path].js`.
 
 ---
 
@@ -276,9 +288,11 @@ If `DASHBOARD_URL` is still `http://localhost:3000` in production, email links w
 
 | Symptom | Fix |
 |---------|-----|
-| **403 Unauthorized** | Match `X_JOBBOT_KEY` and `NEXT_PUBLIC_UI_ACCESS_KEY`; clear `localStorage` and re-unlock |
-| **Network error / CORS** | Set `CORS_ORIGINS` on Render to your Vercel domain |
-| **API 404** | `NEXT_PUBLIC_API_URL` must include `/api` suffix |
+| **403 on unlock** | `JOBBOT_ACCESS_SECRET` on Vercel must match what you type (and match Render `X_JOBBOT_KEY`) |
+| **401 on dashboard** | Session expired — unlock again; check `JOBBOT_ACCESS_SECRET` is set on Vercel |
+| **500 on unlock** | `JOBBOT_ACCESS_SECRET` missing on Vercel — add env var and redeploy |
+| **Network error / CORS** | Set `CORS_ORIGINS` on Render to your Vercel domain (proxy uses server-side fetch) |
+| **502 Backend unavailable** | Render down or wrong `BACKEND_API_URL` on Vercel |
 | **Web search skipped** | Set `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX`; restart backend |
 | **Google 403** | Enable Custom Search API; check key restrictions and daily quota |
 | **Emails not sending** | Verify Resend domain / `FROM_EMAIL` |

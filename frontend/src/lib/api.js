@@ -1,41 +1,52 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-const ACCESS_KEY = process.env.NEXT_PUBLIC_UI_ACCESS_KEY || 'your_secure_backend_access_key';
-
+// All browser traffic goes through Next.js API routes — secrets stay on the server.
 const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api/backend',
+  withCredentials: true,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 });
 
-// Dynamic request interceptor to fetch key from localStorage
-apiClient.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const storedKey = localStorage.getItem('jobbot_access_key');
-    const envKey = process.env.NEXT_PUBLIC_UI_ACCESS_KEY;
-    const key = storedKey || envKey || '';
-    config.headers['X-JobBot-Key'] = key;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
-// Response interceptor to handle authorization failures
-apiClient.interceptors.response.use((response) => {
-  return response;
-}, (error) => {
-  if (error.response && error.response.status === 403) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('jobbot_access_key');
-      // Reload to trigger redirection to lock screen
-      window.location.reload();
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    if (typeof window !== 'undefined' && (status === 401 || status === 403)) {
+      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
+        window.location.reload();
+      });
     }
+    return Promise.reject(error);
   }
-  return Promise.reject(error);
-});
+);
+
+export const auth = {
+  unlock: async (passcode) => {
+    const res = await fetch('/api/auth/unlock', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data.detail || 'Unlock failed');
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  },
+  logout: async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  },
+  checkSession: async () => {
+    const res = await fetch('/api/auth/session', { credentials: 'include' });
+    const data = await res.json();
+    return Boolean(data.authenticated);
+  },
+};
 
 export const api = {
   // --- Profile ---
@@ -51,7 +62,7 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
     const res = await apiClient.post('/profile/photo', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
   },
@@ -85,7 +96,7 @@ export const api = {
     const formData = new FormData();
     formData.append('file', file);
     const res = await apiClient.post('/resume/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
   },
@@ -105,7 +116,7 @@ export const api = {
   },
   uploadDocument: async (formData) => {
     const res = await apiClient.post('/vault/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
   },
@@ -220,5 +231,5 @@ export const api = {
   getEmailLogs: async () => {
     const res = await apiClient.get('/email/log');
     return res.data;
-  }
+  },
 };

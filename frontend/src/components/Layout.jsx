@@ -7,7 +7,7 @@ import {
   Lock, KeyRound, LogOut, Menu, X
 } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
-import { api } from '../lib/api';
+import { api, auth } from '../lib/api';
 
 const navigationLinks = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, short: 'Home' },
@@ -122,7 +122,7 @@ export default function Layout({ children }) {
     setUnlocking(true);
     setAuthError('');
     try {
-      localStorage.setItem('jobbot_access_key', passcode.trim());
+      await auth.unlock(passcode);
       const profData = await api.getProfile();
       setProfile(profData);
       const status = await api.getScraperStatus();
@@ -130,15 +130,20 @@ export default function Layout({ children }) {
       setIsAuthorized(true);
       setPasscode('');
     } catch (err) {
-      localStorage.removeItem('jobbot_access_key');
-      setAuthError('Invalid passcode. Access denied.');
+      if (err.status === 403) {
+        setAuthError('Wrong access key. Use the same value as JOBBOT_ACCESS_SECRET / X_JOBBOT_KEY.');
+      } else if (err.status === 500) {
+        setAuthError(err.message || 'Server misconfigured. Set JOBBOT_ACCESS_SECRET on Vercel.');
+      } else {
+        setAuthError('Cannot unlock. Start the backend locally or redeploy Vercel with env vars set.');
+      }
     } finally {
       setUnlocking(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('jobbot_access_key');
+  const handleLogout = async () => {
+    await auth.logout();
     setIsAuthorized(false);
     setProfile(null);
     window.location.reload();

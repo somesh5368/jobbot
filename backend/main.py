@@ -45,8 +45,8 @@ async def lifespan(app: FastAPI):
 
 # Security Header validation Key Check
 async def verify_jobbot_key(x_jobbot_key: str = Header(None, alias="X-JobBot-Key")):
-    expected_key = os.getenv("X_JOBBOT_KEY", "your_secure_backend_access_key")
-    if x_jobbot_key != expected_key:
+    expected_key = os.getenv("X_JOBBOT_KEY", "your_secure_backend_access_key").strip()
+    if (x_jobbot_key or "").strip() != expected_key:
         raise HTTPException(
             status_code=403, 
             detail="Unauthorized: Invalid or missing X-JobBot-Key header"
