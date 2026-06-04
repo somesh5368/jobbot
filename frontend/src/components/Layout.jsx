@@ -150,6 +150,9 @@ export default function Layout({ children }) {
       }
       setIsAuthorized(true);
       setPasscode('');
+      if (profData?.needs_setup) {
+        router.push('/profile');
+      }
     } catch (err) {
       const detail = err.message || 'Unlock failed';
       if (err.status === 403) {

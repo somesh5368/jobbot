@@ -27,6 +27,19 @@ async function verifyBackendKey() {
     throw err;
   }
 
+  if (profileRes.status === 404) {
+    const data = await profileRes.json().catch(() => ({}));
+    if (String(data.detail || '').toLowerCase().includes('not initialized')) {
+      return {
+        full_name: 'New User',
+        email: '',
+        education: [],
+        experience: [],
+        needs_setup: true,
+      };
+    }
+  }
+
   if (!profileRes.ok) {
     const text = await profileRes.text().catch(() => '');
     const err = new Error(`Backend error (${profileRes.status}): ${text.slice(0, 120)}`);

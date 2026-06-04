@@ -7,6 +7,7 @@ from models.profile import (
     ExperienceCreate, ExperienceUpdate, ExperienceResponse
 )
 from services.storage_service import upload_file_to_storage, generate_download_url
+from services.profile_service import ensure_profile_row
 from uuid import UUID
 
 router = APIRouter()
@@ -16,12 +17,7 @@ router = APIRouter()
 @router.get("/", response_model=CompleteProfileResponse)
 async def get_profile():
     db = get_db()
-    # Load profile row (there is only one row in the single-user database)
-    profile_res = db.table("profiles").select("*").limit(1).execute()
-    if not profile_res.data:
-        raise HTTPException(status_code=404, detail="Profile details not initialized yet.")
-    
-    profile = profile_res.data[0]
+    profile = ensure_profile_row()
     profile_id = profile["id"]
     
     # Pre-render photo signed URL if profile photo exists
@@ -43,12 +39,7 @@ async def get_profile():
 @router.put("/", response_model=ProfileResponse)
 async def update_profile(profile_update: ProfileUpdate):
     db = get_db()
-    # Find existing row
-    existing = db.table("profiles").select("id").limit(1).execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Profile not found. Please upload master resume to initialize.")
-    
-    profile_id = existing.data[0]["id"]
+    profile_id = ensure_profile_row()["id"]
     update_data = profile_update.model_dump(exclude_none=True)
     
     # Cast email address to string if present
@@ -64,12 +55,8 @@ async def update_profile(profile_update: ProfileUpdate):
 async def upload_profile_photo(file: UploadFile = File(...)):
     """Upload photo to private storage and log path in profiles table"""
     db = get_db()
-    existing = db.table("profiles").select("id").limit(1).execute()
-    if not existing.data:
-        raise HTTPException(status_code=404, detail="Profile not found. Upload master resume first.")
-    
-    profile_id = existing.data[0]["id"]
-    
+    profile_id = ensure_profile_row()["id"]
+
     if not file.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
         raise HTTPException(status_code=400, detail="Unsupported image format. Only PNG, JPG, JPEG, and WEBP images are allowed.")
         
@@ -110,11 +97,7 @@ async def list_education():
 @router.post("/education", response_model=EducationResponse)
 async def add_education(edu: EducationCreate):
     db = get_db()
-    profile_res = db.table("profiles").select("id").limit(1).execute()
-    if not profile_res.data:
-        raise HTTPException(status_code=404, detail="Profile not found.")
-        
-    profile_id = profile_res.data[0]["id"]
+    profile_id = ensure_profile_row()["id"]
     edu_data = edu.model_dump()
     edu_data["profile_id"] = str(profile_id)
     
@@ -157,11 +140,7 @@ async def list_experience():
 @router.post("/experience", response_model=ExperienceResponse)
 async def add_experience(exp: ExperienceCreate):
     db = get_db()
-    profile_res = db.table("profiles").select("id").limit(1).execute()
-    if not profile_res.data:
-        raise HTTPException(status_code=404, detail="Profile not found.")
-        
-    profile_id = profile_res.data[0]["id"]
+    profile_id = ensure_profile_row()["id"]
     exp_data = exp.model_dump()
     exp_data["profile_id"] = str(profile_id)
     # Serialize date to string for supabase

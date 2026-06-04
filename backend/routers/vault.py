@@ -5,6 +5,7 @@ from datetime import date
 from database import get_db
 from models.document import DocumentUpdate, DocumentResponse
 from services.storage_service import upload_file_to_storage, generate_download_url, delete_file_from_storage
+from services.profile_service import ensure_profile_row
 
 router = APIRouter()
 
@@ -28,11 +29,7 @@ async def upload_document(
     """Upload academic or identity document to private vault storage"""
     db = get_db()
     
-    profile_res = db.table("profiles").select("id").limit(1).execute()
-    if not profile_res.data:
-        raise HTTPException(status_code=404, detail="Profile not found. Upload master resume first.")
-        
-    profile_id = profile_res.data[0]["id"]
+    profile_id = ensure_profile_row()["id"]
     contents = await file.read()
     
     # Categorize storage folders by document type
