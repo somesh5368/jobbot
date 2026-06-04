@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobBot AI Match Alert</title>
+</head>
+<body style="background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; color: #f1f5f9;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);">
+    
+    <!-- Top Indigo Accent Bar -->
+    <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 30px 20px; text-align: center;">
+      <div style="font-size: 40px; margin-bottom: 10px;">🎯</div>
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">JobBot AI Match Alert</h1>
+      <p style="color: #e0e7ff; margin: 8px 0 0 0; font-size: 14px;">We found a job matching your profile profile details.</p>
+    </div>
+    
+    <!-- Body Content -->
+    <div style="padding: 24px;">
+      
+      <!-- Match Circle Banner -->
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; background-color: {% if job.match_score >= 80 %}#065f46{% else %}#78350f{% endif %}; color: {% if job.match_score >= 80 %}#34d399{% else %}#fbbf24{% endif %}; padding: 8px 16px; border-radius: 9999px; font-size: 16px; font-weight: 700; border: 1px solid {% if job.match_score >= 80 %}#059669{% else %}#d97706{% endif %};">
+          🎯 {{ job.match_score }}% Match Score
+        </span>
+      </div>
+
+      <!-- Job Card Details -->
+      <div style="background-color: #0f172a; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #334155;">
+        <h2 style="color: #f8fafc; font-size: 18px; margin: 0 0 6px 0; font-weight: 700;">{{ job.title }}</h2>
+        <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 16px 0;"><strong>{{ job.company }}</strong> &bull; {{ job.location or 'Remote' }}</p>
+        
+        <!-- Quick stats -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8; width: 40%;">💼 Job Type:</td>
+            <td style="padding: 6px 0; color: #f1f5f9; font-weight: 600;">{{ job.job_type | capitalize }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">💰 Stipend / Salary:</td>
+            <td style="padding: 6px 0; color: #f1f5f9; font-weight: 600;">{{ job.stipend_or_salary or 'Not Disclosed' }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">📅 Apply Before:</td>
+            <td style="padding: 6px 0; color: #ef4444; font-weight: 600;">{{ job.deadline or 'N/A' }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">🌐 Platform Source:</td>
+            <td style="padding: 6px 0; color: #38bdf8; font-weight: 600;">{{ job.source | upper }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">🚨 Fraud Risk:</td>
+            <td style="padding: 6px 0; color: {% if job.fake_risk_score < 30 %}#10b981{% elif job.fake_risk_score < 60 %}#f59e0b{% else %}#ef4444{% endif %}; font-weight: 700;">
+              {{ job.fake_risk_score }}% ({% if job.fake_risk_score < 30 %}Safe{% elif job.fake_risk_score < 60 %}Suspicious{% else %}High Risk{% endif %})
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- AI Summary -->
+      {% if job.ai_summary %}
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #6366f1; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; font-weight: 700;">AI Summary</h3>
+        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.6; margin: 0; background-color: #0f172a; padding: 12px; border-radius: 8px; border-left: 3px solid #6366f1;">
+          {{ job.ai_summary }}
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- Match Reasons -->
+      {% if job.match_reasons %}
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; font-weight: 700;">Why You Match</h3>
+        <ul style="padding-left: 20px; margin: 0; font-size: 13.5px; color: #cbd5e1; line-height: 1.6;">
+          {% for reason in job.match_reasons %}
+          <li style="margin-bottom: 6px;">{{ reason }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Action Buttons -->
+      <div style="text-align: center; margin-top: 30px; margin-bottom: 10px;">
+        <a href="{{ job.source_url }}" style="display: inline-block; background-color: #6366f1; color: #ffffff; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.4); margin-right: 10px; margin-bottom: 10px;">
+          Apply Direct Link
+        </a>
+        <a href="{{ dashboard_url }}/jobs" style="display: inline-block; background-color: #334155; color: #f1f5f9; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; text-decoration: none; border: 1px solid #475569; margin-bottom: 10px;">
+          View in Dashboard
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #0f172a; padding: 20px; border-top: 1px solid #334155; text-align: center;">
+      <p style="color: #64748b; font-size: 11px; margin: 0 0 4px 0; line-height: 1.4;">
+        This alert was sent automatically by JobBot AI. Running 24/7 on your local workstation.
+      </p>
+      <p style="color: #475569; font-size: 11px; margin: 0;">
+        JobBot 2.0 &bull; Developed by Somesh Pandey
+      </p>
+    </div>
+    
+  </div>
+</body>
+</html>

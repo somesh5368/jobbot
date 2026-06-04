@@ -1,13 +1,28 @@
--- =============================================
--- JobBot AI v2.0 - Supabase Schema
--- Run this in Supabase SQL Editor to update
--- =============================================
+-- ========================================================
+-- JobBot AI v2.0 - Clean Drop & Recreate Migration
+-- Run this in Supabase SQL Editor (Removes old v1 tables)
+-- ========================================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Profiles Table (Single-User Profile)
-CREATE TABLE IF NOT EXISTS profiles (
+-- 1. DROP OLD TABLES (Cascading removes foreign key constraints)
+DROP TABLE IF EXISTS email_logs CASCADE;
+DROP TABLE IF EXISTS scrape_logs CASCADE;
+DROP TABLE IF EXISTS applications CASCADE;
+DROP TABLE IF EXISTS jobs CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+DROP TABLE IF EXISTS education CASCADE;
+DROP TABLE IF EXISTS experience CASCADE;
+DROP TABLE IF EXISTS documents CASCADE;
+DROP TABLE IF EXISTS interview_prep CASCADE;
+DROP TABLE IF EXISTS resume_versions CASCADE;
+DROP TABLE IF EXISTS email_log CASCADE;
+
+-- 2. CREATE NEW TABLES (v2.0 Redesign Schema)
+
+-- Profiles Table (Single-User Profile)
+CREATE TABLE profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   full_name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
@@ -36,14 +51,14 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Education Table
-CREATE TABLE IF NOT EXISTS education (
+-- Education Table
+CREATE TABLE education (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  degree TEXT NOT NULL, -- e.g. 'B.Tech', 'XII', 'X'
+  degree TEXT NOT NULL,
   institution TEXT NOT NULL,
   board_or_university TEXT,
-  field_of_study TEXT, -- e.g. 'CSE-AI'
+  field_of_study TEXT,
   start_year INTEGER,
   end_year INTEGER,
   cgpa_or_percentage TEXT,
@@ -51,23 +66,23 @@ CREATE TABLE IF NOT EXISTS education (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Experience Table
-CREATE TABLE IF NOT EXISTS experience (
+-- Experience Table
+CREATE TABLE experience (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   company TEXT NOT NULL,
   role TEXT NOT NULL,
   employment_type TEXT CHECK (employment_type IN ('internship', 'fulltime', 'freelance', 'project')),
   start_date DATE NOT NULL,
-  end_date DATE, -- NULL if current
+  end_date DATE,
   is_current BOOLEAN DEFAULT false,
-  description TEXT, -- bullet points of work
+  description TEXT,
   technologies TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 4. Document Vault Table
-CREATE TABLE IF NOT EXISTS documents (
+-- Document Vault Table
+CREATE TABLE documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   document_type TEXT CHECK (document_type IN ('aadhar', 'pan', 'marksheet_10', 'marksheet_12', 'degree', 'offer_letter', 'certificate', 'other')),
@@ -83,20 +98,20 @@ CREATE TABLE IF NOT EXISTS documents (
   uploaded_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 5. Jobs Table
-CREATE TABLE IF NOT EXISTS jobs (
+-- Jobs Table
+CREATE TABLE jobs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT NOT NULL,
   company TEXT NOT NULL,
   location TEXT,
   job_type TEXT CHECK (job_type IN ('internship', 'fulltime', 'parttime', 'remote')),
-  source TEXT NOT NULL, -- e.g. 'internshala', 'naukri', 'linkedin', 'web_search'
+  source TEXT NOT NULL,
   source_url TEXT NOT NULL UNIQUE,
   description TEXT NOT NULL,
   requirements TEXT[] DEFAULT '{}',
   skills_required TEXT[] DEFAULT '{}',
   stipend_or_salary TEXT,
-  duration TEXT, -- for internships
+  duration TEXT,
   deadline DATE,
   posted_date DATE,
   match_score INTEGER DEFAULT 0 CHECK (match_score BETWEEN 0 AND 100),
@@ -110,8 +125,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   scraped_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 6. Applications Table
-CREATE TABLE IF NOT EXISTS applications (
+-- Applications Table
+CREATE TABLE applications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   job_id UUID REFERENCES jobs(id) ON DELETE CASCADE UNIQUE,
@@ -132,8 +147,8 @@ CREATE TABLE IF NOT EXISTS applications (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 7. Competitions Table
-CREATE TABLE IF NOT EXISTS competitions (
+-- Competitions Table
+CREATE TABLE competitions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -157,30 +172,30 @@ CREATE TABLE IF NOT EXISTS competitions (
   scraped_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 8. Interview Prep Table
-CREATE TABLE IF NOT EXISTS interview_prep (
+-- Interview Prep Table
+CREATE TABLE interview_prep (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
   application_id UUID REFERENCES applications(id) ON DELETE CASCADE UNIQUE,
   generated_at TIMESTAMPTZ DEFAULT now(),
   company_research TEXT,
   role_overview TEXT,
-  technical_questions JSONB DEFAULT '[]', -- List of {question, hint, sample_answer, difficulty, user_answer, feedback}
-  hr_questions JSONB DEFAULT '[]',        -- List of {question, hint, what_they_look_for, sample_answer}
-  domain_questions JSONB DEFAULT '[]',    -- List of {question, hint, sample_answer}
+  technical_questions JSONB DEFAULT '[]',
+  hr_questions JSONB DEFAULT '[]',
+  domain_questions JSONB DEFAULT '[]',
   coding_topics TEXT[] DEFAULT '{}',
   project_tips TEXT,
   resume_talking_points TEXT[] DEFAULT '{}',
   dress_code_tips TEXT,
   dos_and_donts TEXT[] DEFAULT '{}',
   estimated_rounds INTEGER,
-  prep_resources JSONB DEFAULT '[]',       -- List of {title, url, type}
+  prep_resources JSONB DEFAULT '[]',
   ats_resume_url TEXT,
   cover_letter_text TEXT
 );
 
--- 9. Resume Versions Table
-CREATE TABLE IF NOT EXISTS resume_versions (
+-- Resume Versions Table
+CREATE TABLE resume_versions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
@@ -194,11 +209,11 @@ CREATE TABLE IF NOT EXISTS resume_versions (
   generated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 10. Email Log Table
-CREATE TABLE IF NOT EXISTS email_log (
+-- Email Log Table
+CREATE TABLE email_log (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  email_type TEXT NOT NULL, -- e.g., 'job_alert', 'interview_prep', 'weekly_digest'
+  email_type TEXT NOT NULL,
   subject TEXT NOT NULL,
   body_preview TEXT,
   job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
@@ -209,8 +224,8 @@ CREATE TABLE IF NOT EXISTS email_log (
   error_message TEXT
 );
 
--- 11. Scrape Run Logs Table (Telemetry)
-CREATE TABLE IF NOT EXISTS scrape_logs (
+-- Scrape Run Logs Table (Telemetry)
+CREATE TABLE scrape_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   source TEXT,
   jobs_found INTEGER DEFAULT 0,

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobBot AI Competition Alert</title>
+</head>
+<body style="background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; color: #f1f5f9;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #1e293b; border-radius: 16px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);">
+    
+    <!-- Top Emerald Accent Bar -->
+    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px 20px; text-align: center;">
+      <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">New Competition Discovered</h1>
+      <p style="color: #d1fae5; margin: 8px 0 0 0; font-size: 14px;">A relevant hackathon or contest has been scraped for your profile.</p>
+    </div>
+    
+    <!-- Body Content -->
+    <div style="padding: 24px;">
+      
+      <!-- Match Circle Banner -->
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="display: inline-block; background-color: #065f46; color: #34d399; padding: 8px 16px; border-radius: 9999px; font-size: 16px; font-weight: 700; border: 1px solid #059669;">
+          🔥 {{ comp.relevance_score }}% Relevance Score
+        </span>
+      </div>
+
+      <!-- Competition Card Details -->
+      <div style="background-color: #0f172a; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #334155;">
+        <h2 style="color: #f8fafc; font-size: 18px; margin: 0 0 6px 0; font-weight: 700;">{{ comp.title }}</h2>
+        <p style="color: #cbd5e1; font-size: 14px; margin: 0 0 16px 0;">Organized by: <strong>{{ comp.organizer }}</strong></p>
+        
+        <!-- Details Table -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8; width: 40%;">🏆 Type:</td>
+            <td style="padding: 6px 0; color: #f1f5f9; font-weight: 600;">{{ comp.competition_type | replace('_', ' ') | capitalize }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">🎁 Prizes / Rewards:</td>
+            <td style="padding: 6px 0; color: #f59e0b; font-weight: 600;">{{ comp.prizes or 'Not Disclosed' }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">📅 Deadline to Register:</td>
+            <td style="padding: 6px 0; color: #ef4444; font-weight: 600;">{{ comp.registration_deadline or 'N/A' }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">👥 Team size:</td>
+            <td style="padding: 6px 0; color: #f1f5f9; font-weight: 600;">{{ comp.team_size or 'Open' }}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #94a3b8;">📌 Format:</td>
+            <td style="padding: 6px 0; color: #38bdf8; font-weight: 600;">{% if comp.is_online %}Online{% else %}Offline{% endif %}</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Domain list -->
+      {% if comp.domains %}
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; font-weight: 700;">Matching Domains</h3>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          {% for dom in comp.domains %}
+          <span style="background-color: #0f172a; color: #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 12.5px; border: 1px solid #334155; margin-right: 6px; margin-bottom: 6px; display: inline-block;">
+            {{ dom }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- AI Summary -->
+      {% if comp.description %}
+      <div style="margin-bottom: 24px;">
+        <h3 style="color: #10b981; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 0; font-weight: 700;">Contest Description</h3>
+        <p style="color: #cbd5e1; font-size: 13.5px; line-height: 1.6; margin: 0; background-color: #0f172a; padding: 12px; border-radius: 8px; border-left: 3px solid #10b981;">
+          {{ comp.description | truncate(350) }}
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- Action Buttons -->
+      <div style="text-align: center; margin-top: 30px; margin-bottom: 10px;">
+        <a href="{{ comp.source_url }}" style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.4); margin-right: 10px; margin-bottom: 10px;">
+          Register Now
+        </a>
+        <a href="{{ dashboard_url }}/competitions" style="display: inline-block; background-color: #334155; color: #f1f5f9; padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 700; text-decoration: none; border: 1px solid #475569; margin-bottom: 10px;">
+          Add to Tracker
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #0f172a; padding: 20px; border-top: 1px solid #334155; text-align: center;">
+      <p style="color: #64748b; font-size: 11px; margin: 0 0 4px 0; line-height: 1.4;">
+        This alert was sent automatically by JobBot AI.
+      </p>
+      <p style="color: #475569; font-size: 11px; margin: 0;">
+        JobBot 2.0 &bull; Developed by Somesh Pandey
+      </p>
+    </div>
+    
+  </div>
+</body>
+</html>
