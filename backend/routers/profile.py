@@ -1,5 +1,8 @@
+import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 from database import get_db
 from models.profile import (
     ProfileUpdate, ProfileResponse, CompleteProfileResponse,
@@ -17,24 +20,30 @@ router = APIRouter()
 @router.get("/", response_model=CompleteProfileResponse)
 async def get_profile():
     db = get_db()
-    profile = ensure_profile_row()
-    profile_id = profile["id"]
-    
-    # Pre-render photo signed URL if profile photo exists
-    if profile.get("photo_url"):
-        signed_photo = generate_download_url("user-vault", profile["photo_url"])
-        if signed_photo:
-            profile["photo_url"] = signed_photo
-            
-    # Load related education list
-    edu_res = db.table("education").select("*").eq("profile_id", profile_id).execute()
-    # Load related experience list
-    exp_res = db.table("experience").select("*").eq("profile_id", profile_id).execute()
-    
-    profile["education"] = edu_res.data or []
-    profile["experience"] = exp_res.data or []
-    
-    return profile
+    try:
+        profile = ensure_profile_row()
+        profile_id = str(profile["id"])
+
+        if profile.get("photo_url"):
+            try:
+                signed_photo = generate_download_url("user-vault", profile["photo_url"])
+                if signed_photo:
+                    profile["photo_url"] = signed_photo
+            except Exception as e:
+                logger.warning(f"Photo signed URL skipped: {e}")
+
+        edu_res = db.table("education").select("*").eq("profile_id", profile_id).execute()
+        exp_res = db.table("experience").select("*").eq("profile_id", profile_id).execute()
+
+        profile["education"] = edu_res.data or []
+        profile["experience"] = exp_res.data or []
+
+        return profile
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("get_profile failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to load profile: {str(e)[:200]}")
 
 @router.put("/", response_model=ProfileResponse)
 async def update_profile(profile_update: ProfileUpdate):
