@@ -175,15 +175,33 @@ Without these, web search is skipped; other scrapers still run.
 
 1. Connect repo → use `backend/render.yaml` or create a **Web Service** (Python).  
 2. **Root directory:** `backend`  
-3. **Build:** `pip install -r requirements.txt`  
-4. **Start:** `uvicorn main:app --host 0.0.0.0 --port $PORT`  
-5. Set all env vars from the table above.  
-6. **Important:**
+3. **Python version:** `3.11.9` (required — see below)  
+4. **Build:** `pip install -r requirements.txt`  
+5. **Start:** `uvicorn main:app --host 0.0.0.0 --port $PORT`  
+6. Set all env vars from the table above.  
+7. **Important:**
    - `DASHBOARD_URL` = your Vercel URL (no trailing slash)  
    - `CORS_ORIGINS` = same Vercel URL  
    - `X_JOBBOT_KEY` = strong random secret  
 
 Health check path: `/health`
+
+#### Pin Python 3.11 (fixes `pydantic-core` build failures)
+
+New Render services default to **Python 3.14**, which forces Rust builds for `pydantic-core` and often fails. This repo pins **3.11.9** via:
+
+- `backend/.python-version`
+- `PYTHON_VERSION=3.11.9` in `render.yaml`
+
+**If the build log still shows `Installing Python version 3.14.x`**, set this manually in Render:
+
+**Dashboard → your service → Environment → Add variable**
+
+| Key | Value |
+|-----|--------|
+| `PYTHON_VERSION` | `3.11.9` |
+
+Save, then **Clear build cache & deploy**. The next log should show `Installing Python version 3.11.9...`.
 
 ### Frontend — Vercel
 
@@ -264,6 +282,8 @@ If `DASHBOARD_URL` is still `http://localhost:3000` in production, email links w
 | **Web search skipped** | Set `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX`; restart backend |
 | **Google 403** | Enable Custom Search API; check key restrictions and daily quota |
 | **Emails not sending** | Verify Resend domain / `FROM_EMAIL` |
+| **Render: `pydantic-core` / maturin / Rust error** | Set `PYTHON_VERSION` to `3.11.9`; redeploy with cleared build cache |
+| **Render: Python 3.14 in build log** | Same — `runtime.txt` is ignored; use `.python-version` or `PYTHON_VERSION` env |
 
 ---
 
