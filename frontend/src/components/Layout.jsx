@@ -78,6 +78,17 @@ export default function Layout({ children }) {
 
   const checkAuthorization = async () => {
     try {
+      const session = await auth.checkSession();
+      if (!session.authenticated) {
+        if (session.configured === false) {
+          setAuthError(
+            session.error ||
+              'Server misconfigured: add JOBBOT_ACCESS_SECRET and BACKEND_API_URL on Vercel, then redeploy.'
+          );
+        }
+        setIsAuthorized(false);
+        return;
+      }
       const profData = await api.getProfile();
       setProfile(profData);
       const status = await api.getScraperStatus();

@@ -4,22 +4,17 @@ import axios from 'axios';
 const apiClient = axios.create({
   baseURL: '/api/backend',
   withCredentials: true,
+  timeout: 90000, // Render free tier cold starts can take ~60s
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Do not auto-reload on 401 — that caused an infinite loop on the lock screen
+// (getProfile → 401 → reload → getProfile → …). Layout handles sign-out explicitly.
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    if (typeof window !== 'undefined' && (status === 401 || status === 403)) {
-      fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
-        window.location.reload();
-      });
-    }
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export const auth = {
@@ -43,8 +38,7 @@ export const auth = {
   },
   checkSession: async () => {
     const res = await fetch('/api/auth/session', { credentials: 'include' });
-    const data = await res.json();
-    return Boolean(data.authenticated);
+    return res.json();
   },
 };
 

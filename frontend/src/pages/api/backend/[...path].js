@@ -52,7 +52,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const backendRes = await fetch(targetUrl, init);
+    const backendRes = await fetch(targetUrl, {
+      ...init,
+      signal: AbortSignal.timeout(85000),
+    });
     const body = Buffer.from(await backendRes.arrayBuffer());
 
     res.status(backendRes.status);
@@ -60,7 +63,8 @@ export default async function handler(req, res) {
     if (contentType) res.setHeader('Content-Type', contentType);
     return res.send(body);
   } catch (err) {
-    console.error('Backend proxy error:', err.message);
-    return res.status(502).json({ detail: 'Backend unavailable' });
+    const msg = err.name === 'TimeoutError' ? 'Backend timed out (cold start?)' : err.message;
+    console.error('Backend proxy error:', msg);
+    return res.status(502).json({ detail: 'Backend unavailable', error: msg });
   }
 }
